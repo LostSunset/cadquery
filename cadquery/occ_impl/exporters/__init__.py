@@ -12,6 +12,7 @@ from ...utils import deprecate
 from ..shapes import Shape
 
 from .svg import getSVG
+from .png import exportPNG
 from .json import JsonMesh
 from .amf import AmfWriter
 from .threemf import ThreeMFWriter
@@ -25,6 +26,7 @@ class ExportTypes:
     STEP = "STEP"
     AMF = "AMF"
     SVG = "SVG"
+    PNG = "PNG"
     TJS = "TJS"
     DXF = "DXF"
     VRML = "VRML"
@@ -33,7 +35,7 @@ class ExportTypes:
 
 
 ExportLiterals = Literal[
-    "STL", "STEP", "AMF", "SVG", "TJS", "DXF", "VRML", "VTP", "3MF"
+    "STL", "STEP", "AMF", "SVG", "PNG", "TJS", "DXF", "VRML", "VTP", "3MF"
 ]
 
 
@@ -93,6 +95,9 @@ def export(
     elif exportType == ExportTypes.SVG:
         with open(fname, "w") as f:
             f.write(getSVG(shape, opt))
+
+    elif exportType == ExportTypes.PNG:
+        exportPNG(shape, fname, opt)
 
     elif exportType == ExportTypes.AMF:
         tess = shape.tessellate(tolerance, angularTolerance)

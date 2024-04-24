@@ -945,3 +945,11 @@ def test_dxf_ellipse_arc(tmpdir):
 
     assert w2.val().isValid()
     assert w2.val().Volume() == approx(math.pi * r ** 2 / 4)
+
+
+def test_png_with_default_options(tmpdir):
+    """
+    Tests to make sure that a PNG image of a Workplane can be exported properly.
+    """
+
+    exporters.export(Workplane().box(5, 5, 5), os.path.join(tmpdir, "png_with_default_opts.png"), opt=None)
