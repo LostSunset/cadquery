@@ -949,7 +949,26 @@ def test_dxf_ellipse_arc(tmpdir):
 
 def test_png_with_default_options(tmpdir):
     """
-    Tests to make sure that a PNG image of a Workplane can be exported properly.
+    Test to make sure that a PNG image of a Workplane can be exported properly.
     """
 
     exporters.export(Workplane().box(5, 5, 5), os.path.join(tmpdir, "png_with_default_opts.png"), opt=None)
+
+
+def test_png_with_options(tmpdir):
+    """
+    Test to make sure that a PNG image is exported correctly when options are applied during
+    the export process.
+    """
+
+    opts = {
+        "width": 500,
+        "height": 500,
+        "camera_position": (-10, -10, -10),
+        "view_up_direction": (0, 1, 0),
+        "focal_point": (0, 0, 0),
+        "parallel_projection": True,
+        "background_color": (1.0, 1.0, 1.0),
+    }
+
+    exporters.export(Workplane().box(5, 5, 5), os.path.join(tmpdir, "png_with_opts.png"), opt=opts)

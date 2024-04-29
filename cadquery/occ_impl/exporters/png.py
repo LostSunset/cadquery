@@ -96,6 +96,7 @@ def exportPNG(shape, fileName: str, opts=None):
         view_up_direction = opts["view_up_direction"] if "view_up_direction" in opts else (0, 0, 1)
         focal_point = opts["focal_point"] if "focal_point" in opts else (0, 0, 0)
         parallel_projection = opts["parallel_projection"] if "parallel_projection" in opts else False
+        background_color = opts["background_color"] if "background_color" in opts else (0.5, 0.5, 0.5)
     else:
         width = 800
         height = 600
@@ -103,6 +104,7 @@ def exportPNG(shape, fileName: str, opts=None):
         view_up_direction = (0, 0, 1)
         focal_point = (0, 0, 0)
         parallel_projection = False
+        background_color = (0.5, 0.5, 0.5)
 
     colors = vtkNamedColors()
 
@@ -126,7 +128,10 @@ def exportPNG(shape, fileName: str, opts=None):
     renderer.AddActor(face_actor)
     renderer.AddActor(edge_actor)
 
-    renderer.SetBackground(0.5, 0.5, 0.5)
+    renderer.SetBackground(background_color[0], background_color[1], background_color[2])
+
+    # Render the scene
+    renderWindow.Render()
 
     # Set the camera as the user requested
     camera = renderer.GetActiveCamera()
@@ -137,9 +142,6 @@ def exportPNG(shape, fileName: str, opts=None):
         camera.ParallelProjectionOn()
     else:
         camera.ParallelProjectionOff()
-
-    # Render the scene
-    renderWindow.Render()
 
     # Export a PNG of the scene
     windowToImageFilter = vtkWindowToImageFilter()
