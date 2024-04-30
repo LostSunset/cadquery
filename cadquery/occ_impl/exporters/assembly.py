@@ -220,3 +220,7 @@ def exportGLTF(
     assy.loc = orig_loc
 
     return result
+
+
+# def exportPNG(assy: AssemblyProtocol,):
+#     pass

@@ -4,9 +4,13 @@ from vtkmodules.vtkCommonColor import vtkNamedColors
 from vtkmodules.vtkRenderingCore import (
     vtkActor,
     vtkPolyDataMapper as vtkMapper,
-    vtkRenderer
+    vtkRenderer,
 )
-from vtkmodules.vtkRenderingCore import vtkRenderWindow, vtkRenderWindowInteractor, vtkWindowToImageFilter
+from vtkmodules.vtkRenderingCore import (
+    vtkRenderWindow,
+    vtkRenderWindowInteractor,
+    vtkWindowToImageFilter,
+)
 from vtkmodules.vtkFiltersExtraction import vtkExtractCellsByType
 from vtkmodules.vtkCommonDataModel import VTK_TRIANGLE, VTK_LINE, VTK_VERTEX
 from vtkmodules.vtkIOImage import vtkPNGWriter
@@ -87,17 +91,28 @@ def exportPNG(shape, fileName: str, opts=None):
         camera_y = (shape.BoundingBox().ymax - shape.BoundingBox().ymin) * 2.0
         camera_z = (shape.BoundingBox().zmax - shape.BoundingBox().zmin) * 2.0
 
-
     # Handle view options that were passed in
     if opts:
         width = opts["width"] if "width" in opts else 800
         height = opts["height"] if "height" in opts else 600
-        camera_position = opts["camera_position"] if "camera_position" in opts else (camera_x, camera_y, camera_z)
-        view_up_direction = opts["view_up_direction"] if "view_up_direction" in opts else (0, 0, 1)
+        camera_position = (
+            opts["camera_position"]
+            if "camera_position" in opts
+            else (camera_x, camera_y, camera_z)
+        )
+        view_up_direction = (
+            opts["view_up_direction"] if "view_up_direction" in opts else (0, 0, 1)
+        )
         focal_point = opts["focal_point"] if "focal_point" in opts else (0, 0, 0)
-        parallel_projection = opts["parallel_projection"] if "parallel_projection" in opts else False
-        background_color = opts["background_color"] if "background_color" in opts else (0.5, 0.5, 0.5)
-        clipping_range = opts["clipping_range"] if "clipping_range" in opts else (0.0, camera_z)
+        parallel_projection = (
+            opts["parallel_projection"] if "parallel_projection" in opts else False
+        )
+        background_color = (
+            opts["background_color"] if "background_color" in opts else (0.5, 0.5, 0.5)
+        )
+        clipping_range = (
+            opts["clipping_range"] if "clipping_range" in opts else (0.0, camera_z)
+        )
     else:
         width = 800
         height = 600
@@ -130,7 +145,9 @@ def exportPNG(shape, fileName: str, opts=None):
     renderer.AddActor(face_actor)
     renderer.AddActor(edge_actor)
 
-    renderer.SetBackground(background_color[0], background_color[1], background_color[2])
+    renderer.SetBackground(
+        background_color[0], background_color[1], background_color[2]
+    )
 
     # Render the scene
     renderWindow.Render()
