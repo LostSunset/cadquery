@@ -952,7 +952,13 @@ def test_png_with_default_options(tmpdir):
     Test to make sure that a PNG image of a Workplane can be exported properly.
     """
 
-    exporters.export(Workplane().box(5, 5, 5), os.path.join(tmpdir, "png_with_default_opts.png"), opt=None)
+    # Assemble the temporary path
+    png_path = os.path.join(tmpdir, "png_with_default_opts.png")
+
+    exporters.export(Workplane().box(5, 5, 5), png_path, opt=None)
+
+    # Make sure that the file was created
+    assert os.path.isfile(png_path)
 
 
 def test_png_with_options(tmpdir):
@@ -961,14 +967,21 @@ def test_png_with_options(tmpdir):
     the export process.
     """
 
+    # Assemble the temporary path
+    png_path = os.path.join(tmpdir, "png_with_opts.png")
+
     opts = {
         "width": 500,
         "height": 500,
-        "camera_position": (-10, -10, -10),
+        "camera_position": (-40, -40, -40),
         "view_up_direction": (0, 1, 0),
         "focal_point": (0, 0, 0),
         "parallel_projection": True,
         "background_color": (1.0, 1.0, 1.0),
+        "clipping_range": (0, 100),
     }
 
-    exporters.export(Workplane().box(5, 5, 5), os.path.join(tmpdir, "png_with_opts.png"), opt=opts)
+    exporters.export(Workplane().box(5, 5, 5), png_path, opt=opts)
+
+    # Make sure that the file was created
+    assert os.path.isfile(png_path)

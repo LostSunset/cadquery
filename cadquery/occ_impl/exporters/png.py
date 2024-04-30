@@ -97,6 +97,7 @@ def exportPNG(shape, fileName: str, opts=None):
         focal_point = opts["focal_point"] if "focal_point" in opts else (0, 0, 0)
         parallel_projection = opts["parallel_projection"] if "parallel_projection" in opts else False
         background_color = opts["background_color"] if "background_color" in opts else (0.5, 0.5, 0.5)
+        clipping_range = opts["clipping_range"] if "clipping_range" in opts else (0.0, camera_z)
     else:
         width = 800
         height = 600
@@ -105,6 +106,7 @@ def exportPNG(shape, fileName: str, opts=None):
         focal_point = (0, 0, 0)
         parallel_projection = False
         background_color = (0.5, 0.5, 0.5)
+        clipping_range = (0.0, camera_z)
 
     colors = vtkNamedColors()
 
@@ -142,6 +144,9 @@ def exportPNG(shape, fileName: str, opts=None):
         camera.ParallelProjectionOn()
     else:
         camera.ParallelProjectionOff()
+
+    # Set the clipping range
+    camera.SetClippingRange(clipping_range[0], clipping_range[1])
 
     # Export a PNG of the scene
     windowToImageFilter = vtkWindowToImageFilter()
