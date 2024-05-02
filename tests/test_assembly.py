@@ -12,6 +12,7 @@ from cadquery.occ_impl.exporters.assembly import (
     exportCAF,
     exportVTKJS,
     exportVRML,
+    exportPNG,
 )
 from cadquery.occ_impl.assembly import toJSON, toCAF, toFusedCAF
 from cadquery.occ_impl.shapes import Face
@@ -725,6 +726,39 @@ def test_save_vtkjs(nested_assy):
 
     nested_assy.save("nested", "VTKJS")
     assert os.path.exists("nested.zip")
+
+
+def test_export_png_without_options(nested_assy, tmpdir):
+    """
+    Whether or not PNG export succeeds without any options passed.
+    """
+
+    temp_path = os.path.join(tmpdir, "nested.png")
+
+    nested_assy.save(temp_path, "PNG")
+    assert os.path.exists(temp_path)
+
+
+def test_export_png_with_options(nested_assy, tmpdir):
+    """
+    Whether or not PNG export succeeds without any options passed.
+    """
+
+    temp_path = os.path.join(tmpdir, "nested.png")
+
+    opts = {
+        "width": 500,
+        "height": 500,
+        "camera_position": (-40, -40, -40),
+        "view_up_direction": (0, 1, 0),
+        "focal_point": (0, 4.0, 0),
+        "parallel_projection": False,
+        "background_color": (1.0, 1.0, 1.0),
+        "clipping_range": (0, 100),
+    }
+
+    nested_assy.save(temp_path, "PNG", opt=opts)
+    assert os.path.exists(temp_path)
 
 
 def test_save_raises(nested_assy):

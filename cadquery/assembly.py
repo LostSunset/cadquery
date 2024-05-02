@@ -32,6 +32,7 @@ from .occ_impl.exporters.assembly import (
     exportVTKJS,
     exportVRML,
     exportGLTF,
+    exportPNG,
     STEPExportModeLiterals,
     ExportModes,
 )
@@ -40,7 +41,7 @@ from .selectors import _expression_grammar as _selector_grammar
 
 # type definitions
 AssemblyObjects = Union[Shape, Workplane, None]
-ExportLiterals = Literal["STEP", "XML", "GLTF", "VTKJS", "VRML", "STL"]
+ExportLiterals = Literal["STEP", "XML", "GLTF", "VTKJS", "VRML", "STL", "PNG"]
 
 PATH_DELIM = "/"
 
@@ -479,7 +480,7 @@ class Assembly(object):
 
         if exportType is None:
             t = path.split(".")[-1].upper()
-            if t in ("STEP", "XML", "VRML", "VTKJS", "GLTF", "GLB", "STL"):
+            if t in ("STEP", "XML", "VRML", "VTKJS", "GLTF", "GLB", "STL", "PNG"):
                 exportType = cast(ExportLiterals, t)
             else:
                 raise ValueError("Unknown extension, specify export type explicitly")
@@ -501,6 +502,14 @@ class Assembly(object):
                 export_ascii = bool(kwargs.get("ascii"))
 
             self.toCompound().exportStl(path, tolerance, angularTolerance, export_ascii)
+        elif exportType == "PNG":
+            # Handle any rendering options for the PNG image
+            if "opt" in kwargs:
+                opt = dict(kwargs.get("opt"))
+            else:
+                opt = None
+
+            exportPNG(self, path, opt)
         else:
             raise ValueError(f"Unknown format: {exportType}")
 

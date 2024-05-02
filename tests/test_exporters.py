@@ -976,7 +976,7 @@ def test_png_with_options(tmpdir):
         "camera_position": (-40, -40, -40),
         "view_up_direction": (0, 1, 0),
         "focal_point": (0, 0, 0),
-        "parallel_projection": True,
+        "parallel_projection": False,
         "background_color": (1.0, 1.0, 1.0),
         "clipping_range": (0, 100),
     }
