@@ -15,11 +15,11 @@ dependencies:
   - pytest-cov
   - ezdxf
   - typing_extensions
-  - nptyping=2.0.1
   - nlopt
   - path
   - casadi
-  - multimethod ==1.9.1
+  - typish
+  - multimethod >=1.11,<2.0
   - typed-ast
   - regex
   - pathspec

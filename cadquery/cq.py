@@ -33,6 +33,7 @@ from typing import (
     List,
     cast,
     Dict,
+    Iterator,
 )
 from typing_extensions import Literal
 from inspect import Parameter, Signature
@@ -51,8 +52,9 @@ from .occ_impl.shapes import (
 )
 
 from .occ_impl.exporters.svg import getSVG, exportSVG
+from .occ_impl.exporters import export
 
-from .utils import deprecate, deprecate_kwarg_name
+from .utils import deprecate, deprecate_kwarg_name, get_arity
 
 from .selectors import (
     Selector,
@@ -270,7 +272,7 @@ class Workplane(object):
         ...
 
     @overload
-    def split(self: T, splitter: Union[T, Shape]) -> T:
+    def split(self: T, splitter: Union["Workplane", Shape]) -> T:
         ...
 
     def split(self: T, *args, **kwargs) -> T:
@@ -383,9 +385,7 @@ class Workplane(object):
             raise ValueError("Cannot Combine: at least one solid required!")
 
         # get context solid and we don't want to find our own objects
-        ctxSolid = self._findType(
-            (Solid, Compound), searchStack=False, searchParents=True
-        )
+        ctxSolid = self._findType((Solid,), searchStack=False, searchParents=True)
         if ctxSolid is None:
             ctxSolid = toCombine.pop(0)
 
@@ -748,8 +748,20 @@ class Workplane(object):
     def _findType(self, types, searchStack=True, searchParents=True):
 
         if searchStack:
-            rv = [s for s in self.objects if isinstance(s, types)]
-            if rv and types == (Solid, Compound):
+            rv = []
+            for obj in self.objects:
+                if isinstance(obj, types):
+                    rv.append(obj)
+                # unpack compounds in a special way when looking for Solids
+                elif isinstance(obj, Compound) and types == (Solid,):
+                    for T in types:
+                        # _entities(...) needed due to weird behavior with shelled object unpacking
+                        rv.extend(T(el) for el in obj._entities(T.__name__))
+                # otherwise unpack compounds normally
+                elif isinstance(obj, Compound):
+                    rv.extend(el for el in obj if isinstance(el, type))
+
+            if rv and types == (Solid,):
                 return Compound.makeCompound(rv)
             elif rv:
                 return rv[0]
@@ -781,7 +793,7 @@ class Workplane(object):
         results with an object already on the stack.
         """
 
-        found = self._findType((Solid, Compound), searchStack, searchParents)
+        found = self._findType((Solid,), searchStack, searchParents)
 
         if found is None:
             message = "on the stack or " if searchStack else ""
@@ -802,7 +814,7 @@ class Workplane(object):
         :returns: A face or None if no face is found.
         """
 
-        found = self._findType(Face, searchStack, searchParents)
+        found = self._findType((Face,), searchStack, searchParents)
 
         if found is None:
             message = "on the stack or " if searchStack else ""
@@ -1460,8 +1472,8 @@ class Workplane(object):
         If you want to position the array at another point, create another workplane
         that is shifted to the position you would like to use as a reference
 
-        :param xSpacing: spacing between points in the x direction ( must be > 0)
-        :param ySpacing: spacing between points in the y direction ( must be > 0)
+        :param xSpacing: spacing between points in the x direction ( must be >= 0)
+        :param ySpacing: spacing between points in the y direction ( must be >= 0)
         :param xCount: number of points ( > 0 )
         :param yCount: number of points ( > 0 )
         :param center: If True, the array will be centered around the workplane center.
@@ -1470,8 +1482,8 @@ class Workplane(object):
           centering along each axis.
         """
 
-        if xSpacing <= 0 or ySpacing <= 0 or xCount < 1 or yCount < 1:
-            raise ValueError("Spacing and count must be > 0 ")
+        if (xSpacing <= 0 and ySpacing <= 0) or xCount < 1 or yCount < 1:
+            raise ValueError("Spacing and count must be > 0 in at least one direction")
 
         if isinstance(center, bool):
             center = (center, center)
@@ -2494,15 +2506,13 @@ class Workplane(object):
 
     def eachpoint(
         self: T,
-        callback: Callable[[Location], Shape],
+        arg: Union[Shape, "Workplane", Callable[[Location], Shape]],
         useLocalCoordinates: bool = False,
         combine: CombineMode = False,
         clean: bool = True,
     ) -> T:
         """
-        Same as each(), except each item on the stack is converted into a point before it
-        is passed into the callback function.
-
+        Same as each(), except arg is translated by the positions on the stack. If arg is a callback function, then the function is called for each point on the stack, and the resulting shape is used.
         :return: CadQuery object which contains a list of  vectors (points ) on its stack.
 
         :param useLocalCoordinates: should points be in local or global coordinates
@@ -2519,6 +2529,7 @@ class Workplane(object):
         If the stack has zero length, a single point is returned, which is the center of the current
         workplane/coordinate system
         """
+
         # convert stack to a list of points
         pnts = []
         plane = self.plane
@@ -2537,10 +2548,33 @@ class Workplane(object):
                 else:
                     pnts.append(o)
 
-        if useLocalCoordinates:
-            res = [callback(p).move(loc) for p in pnts]
+        if isinstance(arg, Workplane):
+            if useLocalCoordinates:
+                res = [
+                    v.moved(p).move(loc)
+                    for v in arg.vals()
+                    for p in pnts
+                    if isinstance(v, Shape)
+                ]
+            else:
+                res = [
+                    v.moved(p * loc)
+                    for v in arg.vals()
+                    for p in pnts
+                    if isinstance(v, Shape)
+                ]
+        elif isinstance(arg, Shape):
+            if useLocalCoordinates:
+                res = [arg.moved(p).move(loc) for p in pnts]
+            else:
+                res = [arg.moved(p * loc) for p in pnts]
+        elif callable(arg):
+            if useLocalCoordinates:
+                res = [arg(p).move(loc) for p in pnts]
+            else:
+                res = [arg(p * loc) for p in pnts]
         else:
-            res = [callback(p * loc) for p in pnts]
+            raise ValueError(f"{arg} is not supported")
 
         for r in res:
             if isinstance(r, Wire) and not r.forConstruction:
@@ -3288,9 +3322,7 @@ class Workplane(object):
         :return: a new object that represents the result of combining the base object with obj,
            or obj if one could not be found
         """
-        baseSolid = self._findType(
-            (Solid, Compound), searchStack=True, searchParents=True
-        )
+        baseSolid = self._findType((Solid,), searchStack=True, searchParents=True)
         r = obj
         if baseSolid is not None:
             r = baseSolid.fuse(obj)
@@ -3306,7 +3338,7 @@ class Workplane(object):
         :return: a new object that represents the result of combining the base object with obj,
            or obj if one could not be found
         """
-        baseSolid = self._findType((Solid, Compound), True, True)
+        baseSolid = self._findType((Solid,), True, True)
 
         r = obj
         if baseSolid is not None:
@@ -3377,9 +3409,7 @@ class Workplane(object):
 
         # now combine with existing solid, if there is one
         # look for parents to cut from
-        solidRef = self._findType(
-            (Solid, Compound), searchStack=True, searchParents=True
-        )
+        solidRef = self._findType((Solid,), searchStack=True, searchParents=True)
         if solidRef is not None:
             r = solidRef.fuse(*newS, glue=glue, tol=tol)
         elif len(newS) > 1:
@@ -3392,7 +3422,8 @@ class Workplane(object):
 
         return self.newObject([r])
 
-    def __or__(self: T, toUnion: Union["Workplane", Solid, Compound]) -> T:
+    @deprecate()
+    def __or__(self: T, other: Union["Workplane", Solid, Compound]) -> T:
         """
         Syntactic sugar for union.
 
@@ -3404,15 +3435,15 @@ class Workplane(object):
             Sphere = Workplane("XY").sphere(1)
             result = Box | Sphere
         """
-        return self.union(toUnion)
+        return self.union(other)
 
-    def __add__(self: T, toUnion: Union["Workplane", Solid, Compound]) -> T:
+    def __add__(self: T, other: Union["Workplane", Solid, Compound]) -> T:
         """
         Syntactic sugar for union.
 
         Notice that :code:`r = a + b` is equivalent to :code:`r = a.union(b)` and :code:`r = a | b`.
         """
-        return self.union(toUnion)
+        return self.union(other)
 
     def cut(
         self: T,
@@ -3450,7 +3481,7 @@ class Workplane(object):
 
         return self.newObject([newS])
 
-    def __sub__(self: T, toUnion: Union["Workplane", Solid, Compound]) -> T:
+    def __sub__(self: T, other: Union["Workplane", Solid, Compound]) -> T:
         """
         Syntactic sugar for cut.
 
@@ -3462,7 +3493,7 @@ class Workplane(object):
             Sphere = Workplane("XY").sphere(1)
             result = Box - Sphere
         """
-        return self.cut(toUnion)
+        return self.cut(other)
 
     def intersect(
         self: T,
@@ -3500,7 +3531,8 @@ class Workplane(object):
 
         return self.newObject([newS])
 
-    def __and__(self: T, toUnion: Union["Workplane", Solid, Compound]) -> T:
+    @deprecate()
+    def __and__(self: T, other: Union["Workplane", Solid, Compound]) -> T:
         """
         Syntactic sugar for intersect.
 
@@ -3512,7 +3544,38 @@ class Workplane(object):
             Sphere = Workplane("XY").sphere(1)
             result = Box & Sphere
         """
-        return self.intersect(toUnion)
+
+        return self.intersect(other)
+
+    def __mul__(self: T, other: Union["Workplane", Solid, Compound]) -> T:
+        """
+        Syntactic sugar for intersect.
+
+        Notice that :code:`r = a * b` is equivalent to :code:`r = a.intersect(b)`.
+
+        Example::
+
+            Box = Workplane("XY").box(1, 1, 1, centered=(False, False, False))
+            Sphere = Workplane("XY").sphere(1)
+            result = Box * Sphere
+        """
+
+        return self.intersect(other)
+
+    def __truediv__(self: T, other: Union["Workplane", Solid, Compound]) -> T:
+        """
+        Syntactic sugar for intersect.
+
+        Notice that :code:`r = a / b` is equivalent to :code:`r = a.split(b)`.
+
+        Example::
+
+            Box = Workplane("XY").box(1, 1, 1, centered=(False, False, False))
+            Sphere = Workplane("XY").sphere(1)
+            result = Box / Sphere
+        """
+
+        return self.split(other)
 
     def cutBlind(
         self: T,
@@ -3658,6 +3721,10 @@ class Workplane(object):
         for el in self.objects:
             if isinstance(el, Sketch):
                 rv.extend(el)
+            elif isinstance(el, Face):
+                rv.append(el)
+            elif isinstance(el, Compound):
+                rv.extend(subel for subel in el if isinstance(subel, Face))
 
         if not rv:
             rv.extend(wiresToFaces(self.ctx.popPendingWires()))
@@ -4407,6 +4474,114 @@ class Workplane(object):
             return Compound.makeCompound(
                 _selectShapes(self.objects)
             )._repr_javascript_()
+
+    def __getitem__(self: T, item: Union[int, Sequence[int], slice]) -> T:
+
+        if isinstance(item, Iterable):
+            rv = self.newObject(self.objects[i] for i in item)
+        elif isinstance(item, slice):
+            rv = self.newObject(self.objects[item])
+        else:
+            rv = self.newObject([self.objects[item]])
+
+        return rv
+
+    def __iter__(self: T) -> Iterator[Shape]:
+        """
+        Special method for iterating over Shapes in objects
+        """
+
+        for el in self.objects:
+            if isinstance(el, Compound):
+                yield from el
+            elif isinstance(el, Shape):
+                yield el
+            elif isinstance(el, Sketch):
+                yield from el
+
+    def filter(self: T, f: Callable[[CQObject], bool]) -> T:
+        """
+        Filter items using a boolean predicate.
+        :param f: Callable to be used for filtering.
+        :return: Workplane object with filtered items.
+        """
+
+        return self.newObject(filter(f, self.objects))
+
+    def map(self: T, f: Callable[[CQObject], CQObject]):
+        """
+        Apply a callable to every item separately.
+        :param f: Callable to be applied to every item separately.
+        :return: Workplane object with f applied to all items.
+        """
+
+        return self.newObject(map(f, self.objects))
+
+    def apply(self: T, f: Callable[[Iterable[CQObject]], Iterable[CQObject]]):
+        """
+        Apply a callable to all items at once.
+        :param f: Callable to be applied.
+        :return: Workplane object with f applied to all items.
+        """
+
+        return self.newObject(f(self.objects))
+
+    def sort(self: T, key: Callable[[CQObject], Any]) -> T:
+        """
+        Sort items using a callable.
+        :param key: Callable to be used for sorting.
+        :return: Workplane object with items sorted.
+        """
+
+        return self.newObject(sorted(self.objects, key=key))
+
+    def invoke(
+        self: T, f: Union[Callable[[T], T], Callable[[T], None], Callable[[], None]]
+    ):
+        """
+        Invoke a callable mapping Workplane to Workplane or None. Supports also
+        callables that take no arguments such as breakpoint. Returns self if callable
+        returns None.
+        :param f: Callable to be invoked.
+        :return: Workplane object.
+        """
+
+        arity = get_arity(f)
+        rv = self
+
+        if arity == 0:
+            f()  # type: ignore
+        elif arity == 1:
+            res = f(self)  # type: ignore
+            if res is not None:
+                rv = res
+        else:
+            raise ValueError("Provided function {f} accepts too many arguments")
+
+        return rv
+
+    def export(
+        self: T,
+        fname: str,
+        tolerance: float = 0.1,
+        angularTolerance: float = 0.1,
+        opt: Optional[Dict[str, Any]] = None,
+    ) -> T:
+        """
+        Export Workplane to file.
+        
+        :param path: Filename.
+        :param tolerance: the deflection tolerance, in model units. Default 0.1.
+        :param angularTolerance: the angular tolerance, in radians. Default 0.1.
+        :param opt: additional options passed to the specific exporter. Default None.
+        :return: Self.
+        """
+
+        export(
+            self, fname, tolerance=tolerance, angularTolerance=angularTolerance, opt=opt
+        )
+
+        return self
 
 
 # alias for backward compatibility
