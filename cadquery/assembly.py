@@ -504,14 +504,6 @@ class Assembly(object):
                 export_ascii = bool(kwargs.get("ascii"))
 
             self.toCompound().exportStl(path, tolerance, angularTolerance, export_ascii)
-        elif exportType == "PNG":
-            # Handle any rendering options for the PNG image
-            if "opt" in kwargs:
-                opt = dict(kwargs.get("opt"))
-            else:
-                opt = None
-
-            exportPNG(self, path, opt)
         else:
             raise ValueError(f"Unknown format: {exportType}")
 
@@ -546,7 +538,7 @@ class Assembly(object):
 
         if exportType is None:
             t = path.split(".")[-1].upper()
-            if t in ("STEP", "XML", "VRML", "VTKJS", "GLTF", "GLB", "STL"):
+            if t in ("STEP", "XML", "VRML", "VTKJS", "GLTF", "GLB", "STL", "PNG"):
                 exportType = cast(ExportLiterals, t)
             else:
                 raise ValueError("Unknown extension, specify export type explicitly")
@@ -568,6 +560,16 @@ class Assembly(object):
                 export_ascii = bool(kwargs.get("ascii"))
 
             self.toCompound().exportStl(path, tolerance, angularTolerance, export_ascii)
+        elif exportType == "PNG":
+            opts = None
+
+            # Handle any rendering options for the PNG image
+            if "opts" in kwargs:
+                opts_str = kwargs.get("opts")
+                if opts_str is not None:
+                    opts = dict(opts_str)
+
+            exportPNG(self, path, opts)
         else:
             raise ValueError(f"Unknown format: {exportType}")
 

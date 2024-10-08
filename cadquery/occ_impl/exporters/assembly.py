@@ -1,6 +1,6 @@
 import os.path
 import uuid
-from math import degrees
+from math import degrees, radians, cos
 
 from tempfile import TemporaryDirectory
 from shutil import make_archive
@@ -295,8 +295,8 @@ def exportPNG(
             edge_mapper.SetInputDataObject(data_edges)
             edge_actor.SetPosition(*translation)
             edge_actor.SetOrientation(*map(degrees, rotation))
-            edge_actor.GetProperty().SetColor(1.0, 1.0, 1.0)
-            edge_actor.GetProperty().SetLineWidth(1)
+            edge_actor.GetProperty().SetColor(0.1, 0.1, 0.1)
+            edge_actor.GetProperty().SetLineWidth(2)
 
             # Handle all actors
             face_actors.append(face_actor)
@@ -312,13 +312,22 @@ def exportPNG(
     if not opts or "camera_position" not in opts:
         camera_x = (
             assy_compound.BoundingBox().xmax - assy_compound.BoundingBox().xmin
-        ) * 2.0
+        )
         camera_y = (
             assy_compound.BoundingBox().ymax - assy_compound.BoundingBox().ymin
-        ) * 2.0
+        )
         camera_z = (
             assy_compound.BoundingBox().zmax - assy_compound.BoundingBox().zmin
-        ) * 2.0
+        )
+    camera_max = max(camera_x, camera_y, camera_z)
+
+    # Figure out the focus point
+    x_diff = assy_compound.BoundingBox().xmax - assy_compound.BoundingBox().xmin
+    y_diff = assy_compound.BoundingBox().ymax - assy_compound.BoundingBox().ymin
+    z_diff = assy_compound.BoundingBox().zmax - assy_compound.BoundingBox().zmin
+    focus_x = -x_diff / 4.0 * cos(radians(45))
+    focus_y = y_diff / 4.0 * cos(radians(45))
+    focus_z = -z_diff / 4.0 * cos(radians(45))
 
     # Handle view options that were passed in
     if opts:
@@ -327,28 +336,28 @@ def exportPNG(
         camera_position = (
             opts["camera_position"]
             if "camera_position" in opts
-            else (camera_x, camera_y, camera_z)
+            else (camera_max, camera_max, camera_max)
         )
         view_up_direction = (
             opts["view_up_direction"] if "view_up_direction" in opts else (0, 0, 1)
         )
-        focal_point = opts["focal_point"] if "focal_point" in opts else (0, 0, 0)
+        focal_point = opts["focal_point"] if "focal_point" in opts else (focus_x, focus_y, focus_z)
         parallel_projection = (
             opts["parallel_projection"] if "parallel_projection" in opts else True
         )
         background_color = (
             opts["background_color"] if "background_color" in opts else (0.5, 0.5, 0.5)
         )
-        clipping_range = opts["clipping_range"] if "clipping_range" in opts else None
+        clipping_range = opts["clipping_range"] if "clipping_range" in opts else (-camera_max * 10.0, camera_max * 10.0)
     else:
         width = 800
         height = 600
-        camera_position = (camera_x, camera_y, camera_z)
+        camera_position = (camera_max, camera_max, camera_max)
         view_up_direction = (0, 0, 1)
-        focal_point = (0, 0, 0)
-        parallel_projection = False
-        background_color = (0.8, 0.8, 0.8)
-        clipping_range = None
+        focal_point = (focus_x, focus_y, focus_z)
+        parallel_projection = True
+        background_color = (0.5, 0.5, 0.5)
+        clipping_range = (-camera_max * 10.0, camera_max * 10.0)
 
     # Setup offscreen rendering
     graphics_factory = vtkGraphicsFactory()
@@ -378,9 +387,15 @@ def exportPNG(
 
     # Set the camera as the user requested
     camera = renderer.GetActiveCamera()
-    camera.SetPosition(camera_position[0], camera_position[1], camera_position[2])
+    # camera.SetPosition(camera_position[0], camera_position[1], camera_position[2])
     camera.SetViewUp(view_up_direction[0], view_up_direction[1], view_up_direction[2])
-    camera.SetFocalPoint(focal_point[0], focal_point[1], focal_point[2])
+    # camera.SetFocalPoint(focal_point[0], focal_point[1], focal_point[2])
+    camera.SetFocalPoint(0, 0, 0)
+    camera.Elevation(-45.0)
+    camera.Azimuth(-45.0)
+    camera.SetParallelScale(max(x_diff, y_diff, z_diff) / 2.0)
+    camera.SetWindowCenter(0.25, -0.1)
+    print(camera.GetWindowCenter())
     if parallel_projection:
         camera.ParallelProjectionOn()
     else:

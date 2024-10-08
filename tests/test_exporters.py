@@ -1011,3 +1011,53 @@ def test_png_with_options(tmpdir):
 
     # Make sure that the file was created
     assert os.path.isfile(png_path)
+
+
+def test_assembly_png_with_default_options(tmpdir):
+    """
+    Test to make sure that a PNG image of an Assembly can be exported to PNG properly.
+    """
+
+    # Create the sample assembly
+    assy = Assembly()
+    assy.add(Workplane().box(10, 10, 10), color=Color(1, 0, 0), name="body")
+    assy.add(Workplane().center(8, 8).cylinder(radius=2, height=20), color=Color(0, 1, 0), name="pin")
+
+    # Assemble the temporary path
+    png_path = os.path.join(tmpdir, "assembly_png_with_default_opts.png")
+
+    # Do a sample export of the assembly to PNG
+    assy.export(png_path)
+
+    assert os.path.isfile(png_path)
+
+
+def test_assembly_png_with_options(tmpdir):
+    """
+    Test to make sure that a PNG image of an Assembly can be exported to PNG properly when options
+    are applied.
+    """
+
+    # Create the sample assembly
+    assy = Assembly()
+    assy.add(Workplane().box(10, 10, 10), color=Color(1, 0, 0), name="body")
+    assy.add(Workplane().center(8, 8).cylinder(radius=2, height=20), color=Color(0, 1, 0), name="pin")
+
+    # Assemble the temporary path
+    png_path = os.path.join(tmpdir, "assembly_png_with_opts.png")
+
+    opts = {
+        "width": 500,
+        "height": 500,
+        "camera_position": (-40, -40, -40),
+        "view_up_direction": (0, 1, 0),
+        "focal_point": (0, 0, 0),
+        "parallel_projection": False,
+        "background_color": (1.0, 1.0, 1.0),
+        "clipping_range": (0, 100),
+    }
+
+    # Do a sample export of the assembly to PNG
+    assy.export(png_path, opt=opts)
+
+    assert os.path.isfile(png_path)
