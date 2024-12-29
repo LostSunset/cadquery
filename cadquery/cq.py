@@ -1,21 +1,5 @@
-"""
-    Copyright (C) 2011-2015  Parametric Products Intellectual Holdings, LLC
-
-    This file is part of CadQuery.
-
-    CadQuery is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
-
-    CadQuery is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this library; If not, see <http://www.gnu.org/licenses/>
-"""
+# Copyright (c) CadQuery Development Team.
+# Distributed under the terms of the Apache 2 License.
 
 import math
 from copy import copy
@@ -4156,7 +4140,7 @@ class Workplane(object):
         self: T,
         height: float,
         radius: float,
-        direct: Vector = Vector(0, 0, 1),
+        direct: Union[Tuple[float, float, float], Vector] = Vector(0, 0, 1),
         angle: float = 360,
         centered: Union[bool, Tuple[bool, bool, bool]] = True,
         combine: CombineMode = True,
@@ -4190,7 +4174,6 @@ class Workplane(object):
 
         If combine is false, the result will be a list of the cylinders produced.
         """
-
         if isinstance(centered, bool):
             centered = (centered, centered, centered)
 
@@ -4202,7 +4185,10 @@ class Workplane(object):
         if centered[2]:
             offset += Vector(0, 0, -height / 2)
 
-        s = Solid.makeCylinder(radius, height, offset, direct, angle)
+        # first center and then apply the direction
+        s = Solid.makeCylinder(radius, height, offset, Vector(0, 0, 1), angle).moved(
+            Plane(Vector(), normal=direct).location
+        )
 
         # We want a cylinder for each point on the workplane
         return self.eachpoint(lambda loc: s.moved(loc), True, combine, clean)
